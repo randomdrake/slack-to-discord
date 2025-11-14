@@ -28,7 +28,7 @@ MAX_THREADNAME_SIZE = 100
 # Formatting options for messages
 BACKUP_THREAD_NAME = "{date} {time}"  # used when the message to create the thread from has no text
 ATTACHMENT_TITLE_TEXT = "<*uploaded a file*> {title}"
-ATTACHMENT_ERROR_APPEND = "\n<original file not uploaded due to size restrictions. See original at <{url}>>"
+ATTACHMENT_ERROR_APPEND = "\n<original file not uploaded due to an error. See original at <{url}>>"
 
 # Create a separator between dates? (None for no)
 DATE_SEPARATOR = "`{:-^30}`"
