@@ -33,7 +33,7 @@ ATTACHMENT_ERROR_APPEND = "\n<original file not uploaded due to size restriction
 # Create a separator between dates? (None for no)
 DATE_SEPARATOR = "`{:-^30}`"
 
-MENTION_RE = re.compile(r"<([@!#])([^>]*?)(?:\|([^>]*?))?>")
+MENTION_RE = re.compile(r"<([@!#])(?:subteam\^)?([^>]*?)(?:\|([^>]*?))?>")
 LINK_RE = re.compile(r"<((?:https?|mailto|tel):[A-Za-z0-9_\+\.\-\/\?\,\=\#\:\@\(\)]+)\|([^>]+)>")
 EMOJI_RE = re.compile(r":([^ /<>:]+):(?::skin-tone-(\d):)?")
 
@@ -156,13 +156,10 @@ def slack_channel_messages(datadir, channel_name, channels, users, emoji_map, pi
             if not label:
                 label = channels[target][0] if target in channels else "[unknown]"
             return "`#{}`".format(label)
-        elif label is not None:
-            return m.group(0)
-
-        if type_ == "@":
+        elif type_ == "@":
             return "`@{}`".format(users[target][0] if target in users else "[unknown]")
         elif type_ == "!":
-            return "`@{}`".format(target)
+            return "`@{}`".format(label or target)
         return m.group(0)
 
     def getkey(f, d, k):
