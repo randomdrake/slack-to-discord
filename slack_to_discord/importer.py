@@ -82,8 +82,9 @@ def slack_usermap(d, real_names=False):
         if real_names:
             name = profile["real_name_normalized"]
         else:
-            # bots sometimes don't set a display name - fall back to the internal username
-            name = profile["display_name_normalized"] or userdata["name"]
+            # bots and some user profiles sometimes don't set a display name
+            # fall back to real_name_normalized if set, otherwise internal username
+            name = profile["display_name_normalized"] or profile["real_name_normalized"] or userdata["name"]
 
         return (name, avatar_url)
 
