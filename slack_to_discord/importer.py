@@ -95,15 +95,17 @@ def slack_usermap(d, real_names=False):
     return r
 
 
-def slack_channels(d):
+def slack_channelmap(d):
     topic = lambda x: "\n\n".join([x[k]["value"] for k in ("purpose", "topic") if x[k]["value"]])
     pins = lambda x: set(p["id"] for p in x.get("pins", []))
 
+    r = {}
     for is_private, file in ((False, "channels.json"), (True, "groups.json")):
         with contextlib.suppress(FileNotFoundError):
             with open(os.path.join(d, file), "rb") as fp:
                 for x in json.load(fp):
-                    yield x["name"], topic(x), pins(x), is_private
+                    r[x["id"]] = (x["name"], topic(x), pins(x), is_private)
+    return r
 
 
 def slack_filedata(f):
@@ -142,15 +144,19 @@ def slack_filedata(f):
     }
 
 
-def slack_channel_messages(datadir, channel_name, users, emoji_map, pins, date_format, time_format):
+def slack_channel_messages(datadir, channel_name, channels, users, emoji_map, pins, date_format, time_format):
     def mention_repl(m):
         type_ = m.group(1)
         target = m.group(2)
-        channel_name = m.group(3)
+        label = m.group(3)
 
         if type_ == "#":
-            return "`#{}`".format(channel_name)
-        elif channel_name is not None:
+            # sometimes channel mentions only have the target (channel ID) field
+            # but not the channel name field.
+            if not label:
+                label = channels[target][0] if target in channels else "[unknown]"
+            return "`#{}`".format(label)
+        elif label is not None:
             return m.group(0)
 
         if type_ == "@":
@@ -413,7 +419,8 @@ class SlackImportClient(discord.Client):
         self._time_format = time_format
         self._start, self._end = [datetime.strptime(x, "%Y-%m-%d").date() if x else None for x in (start, end)]
 
-        self._users = slack_usermap(data_dir, real_names=real_names)
+        self._user_data = slack_usermap(data_dir, real_names=real_names)
+        self._channel_data = slack_channelmap(data_dir)
 
         self._prev_msg = None
         self._exception = None
@@ -491,7 +498,7 @@ class SlackImportClient(discord.Client):
                 __log__.info("Cleaning up previous webhook %s", webhook)
                 await webhook.delete()
 
-        for chan_name, init_topic, pins, is_private in slack_channels(self._data_dir):
+        for chan_name, init_topic, pins, is_private in self._channel_data.values():
             if self._channels is not None and chan_name.lower() not in self._channels:
                 __log__.info("Skipping channel '#%s' - not in the list of channels to import", chan_name)
                 continue
@@ -506,7 +513,7 @@ class SlackImportClient(discord.Client):
 
             __log__.info("Processing channel '#%s'...", chan_name)
 
-            for msg in slack_channel_messages(self._data_dir, chan_name, self._users, emoji_map, pins, self._date_format, self._time_format):
+            for msg in slack_channel_messages(self._data_dir, chan_name, self._channel_data, self._user_data, emoji_map, pins, self._date_format, self._time_format):
                 # skip messages that are too early, stop when messages are too late
                 if self._end and msg["datetime"].date() > self._end:
                     break
