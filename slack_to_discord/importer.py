@@ -180,7 +180,10 @@ def slack_channel_messages(datadir, channel_name, users, emoji_map, pins, date_f
         with open(file, "rb") as fp:
             data = json.load(fp)
         for d in sorted(data, key=lambda x: getkey(file, x, "ts")):
-            text = getkey(file, d, "text")
+            # Note that some messages have no "text" field
+            # (e.g. messages with only an image/attachment)
+            text = d.get("text") or ""
+
             text = MENTION_RE.sub(mention_repl, text)
             text = LINK_RE.sub(lambda x: x.group(1), text)
             text = emoji_replace(text, emoji_map)
