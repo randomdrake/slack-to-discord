@@ -162,6 +162,13 @@ def slack_channel_messages(datadir, channel_name, channels, users, emoji_map, pi
             return "`@{}`".format(label or target)
         return m.group(0)
 
+    def link_repl(m):
+        link = m.group(1)
+        label = m.group(2)
+        if not label or label == link:
+            return link
+        return "[{}]({})".format(label, link)
+
     def getkey(f, d, k):
         try:
             return d[k]
@@ -188,7 +195,7 @@ def slack_channel_messages(datadir, channel_name, channels, users, emoji_map, pi
             text = d.get("text") or ""
 
             text = MENTION_RE.sub(mention_repl, text)
-            text = LINK_RE.sub(lambda x: x.group(1), text)
+            text = LINK_RE.sub(link_repl, text)
             text = emoji_replace(text, emoji_map)
             text = html.unescape(text)
             text = text.rstrip()
