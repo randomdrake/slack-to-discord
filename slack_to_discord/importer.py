@@ -629,6 +629,19 @@ def run_import(*, zipfile, token, **kwargs):
                         zipinfo.filename = zipinfo.filename.encode("cp437").decode("utf-8")
                 z.extract(zipinfo, path=t)
 
+        # do some basic error checking of the export file before starting
+        files = list(os.scandir(t))
+        if len(files) == 1 and files[0].is_dir():
+            # single top-level directory, probably due to re-zipping the export - just handle it
+            t = files[0].path
+            files = list(os.scandir(t))
+
+        if not any(f.name == "users.json" for f in files):
+            raise ValueError(
+                "Provided export file '{}' doesn't look like a Slack export "
+                "(doesn't contain the required 'users.json' file)".format(zipfile)
+            )
+
         __log__.info("Logging the bot into Discord")
         client = SlackImportClient(data_dir=t, **kwargs)
         client.run(token, reconnect=False, log_handler=None)
