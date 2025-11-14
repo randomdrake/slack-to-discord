@@ -42,6 +42,25 @@ EMOJI_RE = re.compile(r":([^ /<>:]+):(?::skin-tone-(\d):)?")
 __log__ = logging.getLogger(__name__)
 
 
+# Helper functions to convert Slack's "mrkdwn" to Discord's markdown version
+md_fix_strikethrough = functools.partial(  # '~strikethrough~' --> '~~strikethrough~~'
+    re.compile(r"\b~([^~]+)~\b").sub,
+    r"~~\1~~"
+)
+md_fix_bold = functools.partial(  # '*bold*' --> '**bold**', '**bold**' --> '\***bold**\*'
+    re.compile(r"\*(\**)([^*]+)\1\*").sub,
+    lambda x: "{1}**{0}**{1}".format(x.group(2), "\\*"*len(x.group(1)))
+)
+md_fix_blockquotes = functools.partial(  # '>quoted' --> '> quoted'
+    re.compile(r"^>(?! )", flags=re.MULTILINE).sub,
+    r"> "
+)
+md_fix_bullets = functools.partial(  # '•'/'◦'/'▪︎' --> '*'
+    re.compile(r"^(\s*)[\u2022\u25AA\u25E6][\uFE00-\uFE0F]?", flags=re.MULTILINE).sub,
+    r"\1*"
+)
+
+
 def emoji_replace(s, emoji_map):
     def replace(match):
         e, t = match.groups()
@@ -199,6 +218,12 @@ def slack_channel_messages(datadir, channel_name, channels, users, emoji_map, pi
             text = emoji_replace(text, emoji_map)
             text = html.unescape(text)
             text = text.rstrip()
+
+            # Fix some markdown styling differences
+            text = md_fix_strikethrough(text)
+            text = md_fix_bold(text)
+            text = md_fix_blockquotes(text)
+            text = md_fix_bullets(text)
 
             ts = d["ts"]
 
