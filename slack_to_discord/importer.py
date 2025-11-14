@@ -399,13 +399,32 @@ def make_discord_msgs(msg):
         embed = None
 
 
-def file_upload_attempts(data):
+def file_upload_attempts(data, channel_dir):
     # Files that are too big cause issues
     # yield data to try to send (original, then thumbnails)
     fd = data.pop("file_data", None)
     if not fd:
         yield data
         return
+
+    # First check the local "attachments" folder (e.g. if we're dealing with a slackdump export)
+    attachments_dir = os.path.join(channel_dir, 'attachments')
+    attachment_path = os.path.join(
+        attachments_dir,
+        "{}-{}".format(fd["url"].split("/")[-2].split("-")[-1], fd["name"])
+    )
+    if os.path.exists(attachment_path):
+        try:
+            __log__.info("Uploading %s", attachment_path)
+            f = discord.File(fp=attachment_path, filename=fd["name"])
+        except Exception:
+            __log__.debug("Failed to upload file", exc_info=True)
+        else:
+            yield {
+                **data,
+                "file": f
+            }
+            return
 
     for i, url in enumerate([fd["url"]] + fd.get("thumbs", [])):
         if i > 0:
@@ -492,11 +511,11 @@ class SlackImportClient(discord.Client):
                 await target.send(content=DATE_SEPARATOR.format(msg["date"]))
         self._prev_msg = msg
 
-    async def _send_slack_msg(self, send, msg):
+    async def _send_slack_msg(self, send, msg, channel_dir):
         sent = None
         pin = msg["events"].pop("pin", False)
         for data in make_discord_msgs(msg):
-            for attempt in file_upload_attempts(data):
+            for attempt in file_upload_attempts(data, channel_dir):
                 with contextlib.suppress(Exception):
                     sent = await send(
                         username=msg["userinfo"][0],
@@ -535,6 +554,7 @@ class SlackImportClient(discord.Client):
             ch = None
             ch_webhook, ch_send = None, None
             c_msg_start = c_msg
+            channel_dir = os.path.join(self._data_dir, chan_name)
 
             self._prev_msg = None  # always start with the date in a new channel
 
@@ -581,7 +601,7 @@ class SlackImportClient(discord.Client):
 
                 # Send message and threaded replies
                 await self._handle_date_sep(ch, msg)
-                sent = await self._send_slack_msg(ch_send, msg)
+                sent = await self._send_slack_msg(ch_send, msg, channel_dir)
                 c_msg += 1
                 if sent and msg["replies"]:
                     # name the thread based on the message text, falling back to the constant, falling back to a datestamp
@@ -595,7 +615,7 @@ class SlackImportClient(discord.Client):
                         thread_send = functools.partial(ch_send, thread=thread)
                         for rmsg in msg["replies"]:
                             await self._handle_date_sep(thread, rmsg)
-                            await self._send_slack_msg(thread_send, rmsg)
+                            await self._send_slack_msg(thread_send, rmsg, channel_dir)
                             c_msg += 1
                     finally:
                         await thread.edit(archived=True)
