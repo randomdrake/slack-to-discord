@@ -1,71 +1,119 @@
-slack-to-discord
-================
+# Slack to Discord
 
-This tool takes a Slack export file and imports it into a Discord server
+> Migrate your Slack workspace history into Discord — channels, messages, threads, files, and all.
+
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ![Demonstration](demo.png)
 
-Capabilities
-------------
-- Imports complete message history (tested with an import of just over 10,000 messages).
-- Handles private channels (if they're included in your Slack export).
-- Handles images and other files (falls back to linking to the files hosted by Slack if they're too
-  big to upload).
-- Preserves the original names and avatars of the Slack users
-- Preserves emojis and reactions to messages. Custom emojis will also work, but need to be manually
-  added to Discord before importing (any `-`s in the emoji names will need to changed to `_`s)
-- Preserves threaded conversations.
-- Preserves pinned messages.
-- Day boundaries between messages are marked by a `--------YYYY-MM-DD--------` message and each
-  message is prefixed by the time it was sent.
-- Messages that are too long for Discord (>2000 characters) are split up and sent as multiple
-  smaller messages.
+## What It Does
 
-Limitations
------------
-- Messages will be timestamped by Discord as the time they were imported, not as the time they were
-  originally sent. This is worked around by adding a timestamp to the text of each message.
-- No private messages will be imported
-- Reactions to messages will be shown in a custom embed, not as normal reactions
-- No embeds from Slack (can contain images, buttons, etc) will be preserved.
-- No canvases from Slack will be preserved.
-- File uploads will be done in two messages. The first is the message content, the second is a
-  message containing the title of the uploaded file and attaching it.
+Takes a Slack export ZIP file and uses a Discord bot to recreate your workspace — preserving the people, conversations, and context your team built.
 
-General recommendations
------------------------
-The program will read all messages from the Slack export and use a bot to post them in a Discord
-server. It's recommended to start with a completely clean server before importing history. As the
-script can only post messages, not rewrite history, any previous content will be buried by the
-imported data. It's also a good idea to make sure everything worked properly before inviting other
-users.
+### Capabilities
 
-Private channels (if you can manage to export them from Slack) will be created such that only the
-bot and server administrators can access them. After the import completes and you invite your users,
-you will need to manually change the roles/permissions to give everyone access to the correct
-channels.
+- Complete message history import (tested with 10,000+ messages)
+- Private channels (if included in your Slack export)
+- Images and file attachments (falls back to Slack-hosted links for oversized files)
+- Original usernames and avatars preserved via webhooks
+- Emoji and reaction support (custom emojis require manual Discord setup; rename `-` to `_`)
+- Threaded conversations maintained as Discord threads
+- Pinned messages carried over
+- Day separators (`--------YYYY-MM-DD--------`) and per-message timestamps
+- Long messages (>2000 chars) automatically split across multiple messages
 
-If something goes wrong with the import, you can delete all the created channels to quickly remove
-the history. At this point, you can either fix the issue yourself and re-run the export (please
-contribute your fixes back to the project!), or open an issue on the project.
+### Limitations
 
-Instructions
-------------
-1. Export your data from Slack via <https://my.slack.com/services/export>
-2. Create a Discord bot (see <https://discordpy.readthedocs.io/en/latest/discord.html>) with the
-   following permissions:
-    - Manage Channels - to create the imported channels and change the topics of them
-    - Manage Webhooks - to allow the bot to fake the usernames and avatars of Slack users
-    - Send Messages
-    - Create Public Threads
-    - Send Messages in Threads
-    - Embed Links - to add reactions to messages (see 'Limitations' section)
-    - Attach Files
-    - Manage Messages - to pin messages [optional]
-3. Install `slack-to-discord` using `pip` (`pip install slack-to-discord`)
-4. Run `slack-to-discord --zipfile <slack export zip> --guild <server name> --token <bot token>`
-   (check `slack-to-discord --help` for other options).
-5. Wait. The program will exit once the import is finished. Due to Discord rate limits, the import
-   process will take a while (speed was roughly 50 messages/min for me)
-6. Inspect the imported history.
-7. Invite your users.
+- Discord timestamps reflect import time, not original send time (mitigated by text timestamps)
+- No private/direct messages imported
+- Reactions displayed as embeds, not native Discord reactions
+- Slack embeds (images, buttons, etc.) and canvases are not preserved
+- File uploads require two messages: one for content, one for the attachment
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- A Slack export ZIP file
+- A Discord bot token with the right permissions
+
+### 1. Export Your Slack Data
+
+Go to https://my.slack.com/services/export and download your workspace export.
+
+### 2. Create a Discord Bot
+
+Follow the [discord.py bot guide](https://discordpy.readthedocs.io/en/latest/discord.html) and grant these permissions:
+
+| Permission | Purpose |
+|---|---|
+| Manage Channels | Create imported channels and set topics |
+| Manage Webhooks | Post as original Slack usernames/avatars |
+| Send Messages | Post message content |
+| Create Public Threads | Recreate threaded conversations |
+| Send Messages in Threads | Post thread replies |
+| Embed Links | Display reactions as embeds |
+| Attach Files | Upload images and files |
+| Manage Messages | Pin messages *(optional)* |
+
+### 3. Install
+
+```bash
+pip install slack-to-discord
+```
+
+### 4. Run
+
+```bash
+slack-to-discord --zipfile <slack_export.zip> --guild "My Server" --token <bot_token>
+```
+
+See all options:
+
+```bash
+slack-to-discord --help
+```
+
+### 5. Wait
+
+Discord rate limits throttle the import to roughly **50 messages/minute**. The program exits when the import is complete.
+
+### 6. Verify and Invite
+
+Inspect the imported history, then invite your users.
+
+## Options
+
+| Flag | Description |
+|---|---|
+| `-z`, `--zipfile` | Path to Slack export ZIP *(required)* |
+| `-t`, `--token` | Discord bot token *(required)* |
+| `-g`, `--guild` | Discord server name *(required)* |
+| `-c`, `--channels` | Only import specific channels (space-separated) |
+| `-s`, `--start` | Start date filter (`YYYY-MM-DD`) |
+| `-e`, `--end` | End date filter (`YYYY-MM-DD`) |
+| `-p`, `--all-private` | Import all channels as private |
+| `-r`, `--real-names` | Use Slack real names instead of usernames |
+| `-df`, `--date-format` | Date separator format (default: `%Y-%m-%d`) |
+| `-tf`, `--time-format` | Message time format (default: `%H:%M`) |
+| `-v`, `--verbose` | Enable debug logging |
+
+## Recommendations
+
+- **Start with a clean Discord server.** The bot posts messages — it can't rewrite history, so existing content gets buried.
+- **Private channels** are created with access restricted to the bot and server admins. After import, manually adjust roles/permissions.
+- **If something goes wrong**, delete the created channels and re-run. If you fix a bug, please contribute it back!
+
+## Contributing
+
+Contributions are welcome. Fork the repo, make your changes, and open a pull request.
+
+## License
+
+[GPLv3](https://www.gnu.org/licenses/gpl-3.0)
+
+## Acknowledgments
+
+Originally created by [pR0Ps](https://github.com/pR0Ps/slack-to-discord).
